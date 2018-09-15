@@ -1,0 +1,4 @@
+base:
+  privileged: true
+  build: .
+  container_name: base
