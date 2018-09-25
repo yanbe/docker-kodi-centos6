@@ -1,4 +1,4 @@
-base:
+kodi:
   privileged: true
   build: .
-  container_name: base
+  container_name: kodi
