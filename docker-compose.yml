@@ -2,3 +2,4 @@ kodi:
   privileged: true
   build: .
   container_name: kodi
+  restart: always

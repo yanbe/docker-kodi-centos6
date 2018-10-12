@@ -1,57 +1,58 @@
 FROM centos:6.10
 
 # install basic X Window System
-RUN 	yum update -y \
+RUN 	echo 'prefer=ftp.riken.jp' >> /etc/yum/pluginconf.d/fastestmirror.conf \
+        && yum clean plugins \
+	&& yum update -y \
 	&& yum install -y \
 		dbus \
 		dbus-x11 \
 		udev \
 		xorg-x11-server-Xorg \
 		xorg-x11-xinit
-	
-RUN	echo 'prefer=ftp.riken.jp' >> /etc/yum/pluginconf.d/fastestmirror.conf \
-	&& yum clean plugins \
-	&& yum install -y unzip \
-	&& cd $HOME \
-	&& curl -LO https://github.com/xbmc/xbmc/archive/master.zip \
-	&& ls -la \
-	&& unzip master.zip
 
+ENV BUILD_DEPS  devtoolset-6-gcc \
+		devtoolset-6-gcc-c++ \
+		cmake3 \
+		patch \
+		yasm \
+		libtool \
+		automake \
+		autoconf
+		
+# install Kodi dependencies from yum repositories
 RUN 	yum install -y \
 		epel-release \
 		centos-release-scl \
 	&& yum install -y \
+		$BUILD_DEPS \
 		scl-utils \
-		devtoolset-6-gcc \
-		devtoolset-6-gcc-c++ \
-		cmake3 \
 		lzo-devel \
 		libpng-devel \
 		giflib-devel \
 		libjpeg-turbo-devel \
 		python27 \
-		# libxml2-devel \
 		expat-devel \
 		libuuid-devel \
 		openssl-devel \
 		pcre-devel \
-		# sqlite-devel \
-		patch \
 		mesa-libGL-devel \
 		mesa-libGLU-devel \
 		mesa-libEGL-devel \
 		libXrandr-devel \
 		java-1.8.0-openjdk \
-		yasm \
-		libtool \
 		gettext \
 		ghostscript \
 		libcurl-devel \
-		automake \
-		autoconf \
 		gperf \
 	&& ln -s /usr/bin/cmake3 /usr/bin/cmake
 
+# get latest Kodi source from GitHub
+RUN	cd $HOME \
+	&& curl -LO https://github.com/xbmc/xbmc/archive/master.tar.gz \
+	&& tar zxvf master.tar.gz
+
+# install Kodi depencencies with Kodi's Unified Depends Build System 
 RUN 	cd $HOME/xbmc-master/tools/depends \
 	&& ./bootstrap \
 	&& source /opt/rh/devtoolset-6/enable \
@@ -84,6 +85,7 @@ RUN     cd $HOME/xbmc-master \
 	&& sed -i -E 's/(#include "DVDDemuxVobsub.h")/#define __STDC_FORMAT_MACROS\n#include <inttypes.h>\n\1/' xbmc/cores/VideoPlayer/DVDDemuxers/DVDDemuxVobsub.cpp \
 	&& curl https://raw.githubusercontent.com/mesa3d/mesa/master/include/EGL/{eglextchromium.h} --output '/usr/include/EGL/#1'
 
+# build Kodi then install
 RUN 	mkdir $HOME/kodi-build \
 	&& cd $HOME/kodi-build \
 	&& source /opt/rh/devtoolset-6/enable \
@@ -98,10 +100,19 @@ RUN 	mkdir $HOME/kodi-build \
 	&& cmake --build . -- VERBOSE=1 -j$(getconf _NPROCESSORS_ONLN) \
 	&& make install
 
-RUN echo 'exec kodi-standalone' > /root/.xinitrc \
-	&& echo /usr/local/lib > /etc/ld.so.conf.d/usr-local-lib.conf \
-	&& ldconfig
+# remove build-only dependencies and intermediate files
+RUN 	rm -rf	$HOME/xbmc-master \
+		$HOME/xbmc-build \
+		/opt/xbmc-deps \
+	&& yum install -y yum-plugin-remove-with-leaves \
+	&& yum remove -y --remove-leaves $BUILD_DEPS \
+	&& yum clean all
 
-COPY services.sh /usr/local/bin/
+# setup run scripts
+COPY	run.sh /usr/local/bin/
 
-CMD [ "/usr/local/bin/services.sh" ]
+RUN	echo /usr/local/lib > /etc/ld.so.conf.d/usr-local-lib.conf \
+	&& ldconfig \
+	&& echo -e 'source /opt/rh/python27/enable\nexec kodi' > /root/.xinitrc
+
+CMD	[ "run.sh" ]

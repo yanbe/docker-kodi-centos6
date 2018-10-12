@@ -2,5 +2,6 @@
 
 /etc/init.d/messagebus start
 /etc/init.d/haldaemon start
-source /opt/rh/python27/enable
-/usr/bin/startx
+startx
+/etc/init.d/haldaemon stop
+/etc/init.d/messagebus stop
