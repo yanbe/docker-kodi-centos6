@@ -1,13 +1,10 @@
 FROM centos:6.10
 
-# install basic X Window System
+# Install basic X Window System
 RUN 	echo 'prefer=ftp.riken.jp' >> /etc/yum/pluginconf.d/fastestmirror.conf \
         && yum clean plugins \
 	&& yum update -y \
 	&& yum install -y \
-		dbus \
-		dbus-x11 \
-		udev \
 		xorg-x11-server-Xorg \
 		xorg-x11-xinit
 
@@ -20,7 +17,7 @@ ENV BUILD_DEPS  devtoolset-6-gcc \
 		automake \
 		autoconf
 		
-# install Kodi dependencies from yum repositories
+# Install Kodi required dependencies from yum repositories
 RUN 	yum install -y \
 		epel-release \
 		centos-release-scl \
@@ -47,12 +44,12 @@ RUN 	yum install -y \
 		gperf \
 	&& ln -s /usr/bin/cmake3 /usr/bin/cmake
 
-# get latest Kodi source from GitHub
+# Get latest Kodi source code from GitHub
 RUN	cd $HOME \
 	&& curl -LO https://github.com/xbmc/xbmc/archive/master.tar.gz \
 	&& tar zxvf master.tar.gz
 
-# install Kodi depencencies with Kodi's Unified Depends Build System 
+# Install Kodi required depencencies with Kodi's Unified Depends Build System 
 RUN 	cd $HOME/xbmc-master/tools/depends \
 	&& ./bootstrap \
 	&& source /opt/rh/devtoolset-6/enable \
@@ -75,6 +72,32 @@ RUN 	cd $HOME/xbmc-master/tools/depends \
 	&& make -j$(getconf _NPROCESSORS_ONLN) -C target/tinyxml PREFIX=/usr/local \
 	&& make -j$(getconf _NPROCESSORS_ONLN) -C target/sqlite3 PREFIX=/usr/local
 
+# Install Kodi optional dependencies from yum
+RUN 	yum install -y \
+		avahi-devel \
+		dbus-devel \
+		pkgconfig \
+		libcap-devel \
+		ccache \	
+		lcms2-devel \
+		lirc-devel \
+		libsmbclient-devel \
+		libxslt-devel
+
+# Install Kodi optional dependencies with Kodi's Unified Depends Build System 
+RUN	cd $HOME/xbmc-master/tools/depends \
+	&& source /opt/rh/devtoolset-6/enable \
+	&& make -j$(getconf _NPROCESSORS_ONLN) -C target/alsa-lib PREFIX=/usr/local \
+	&& make -j$(getconf _NPROCESSORS_ONLN) -C target/mariadb CMAKE=/usr/bin/cmake PREFIX=/usr/local \
+	&& make -j$(getconf _NPROCESSORS_ONLN) -C target/p8-platform CMAKE=/usr/bin/cmake PREFIX=/usr/local \
+	&& make -j$(getconf _NPROCESSORS_ONLN) -C target/libcec CMAKE=/usr/bin/cmake PREFIX=/usr/local \
+	&& make -j$(getconf _NPROCESSORS_ONLN) -C target/libmicrohttpd PREFIX=/usr/local \
+	&& make -j$(getconf _NPROCESSORS_ONLN) -C target/libnfs PREFIX=/usr/local \
+	&& make -j$(getconf _NPROCESSORS_ONLN) -C target/libplist PREFIX=/usr/local \
+	&& make -j$(getconf _NPROCESSORS_ONLN) -C target/libudev PREFIX=/usr/local \
+	&& make -j$(getconf _NPROCESSORS_ONLN) -C target/libusb PREFIX=/usr/local
+
+# Patches for some build errors
 RUN     cd $HOME/xbmc-master \
 	&& sed -i -E 's/(#include <inttypes.h>)/#define __STDC_FORMAT_MACROS\n\1/' tools/depends/native/TexturePacker/src/TexturePacker.cpp \
 	&& sed -i -E 's/(#include "ActiveAEFilter.h")/#define __STDC_FORMAT_MACROS\n#include <inttypes.h>\n\1/' xbmc/cores/AudioEngine/Engines/ActiveAE/ActiveAEFilter.cpp \
@@ -85,7 +108,7 @@ RUN     cd $HOME/xbmc-master \
 	&& sed -i -E 's/(#include "DVDDemuxVobsub.h")/#define __STDC_FORMAT_MACROS\n#include <inttypes.h>\n\1/' xbmc/cores/VideoPlayer/DVDDemuxers/DVDDemuxVobsub.cpp \
 	&& curl https://raw.githubusercontent.com/mesa3d/mesa/master/include/EGL/{eglextchromium.h} --output '/usr/include/EGL/#1'
 
-# build Kodi then install
+# Build Kodi then install
 RUN 	mkdir $HOME/kodi-build \
 	&& cd $HOME/kodi-build \
 	&& source /opt/rh/devtoolset-6/enable \
@@ -100,7 +123,7 @@ RUN 	mkdir $HOME/kodi-build \
 	&& cmake --build . -- VERBOSE=1 -j$(getconf _NPROCESSORS_ONLN) \
 	&& make install
 
-# remove build-only dependencies and intermediate files
+# Remove build-only dependencies and intermediate files
 RUN 	rm -rf	$HOME/xbmc-master \
 		$HOME/xbmc-build \
 		/opt/xbmc-deps \
@@ -108,11 +131,11 @@ RUN 	rm -rf	$HOME/xbmc-master \
 	&& yum remove -y --remove-leaves $BUILD_DEPS \
 	&& yum clean all
 
-# setup run scripts
+# Setup run scripts
 COPY	run.sh /usr/local/bin/
 
-RUN	echo /usr/local/lib > /etc/ld.so.conf.d/usr-local-lib.conf \
+RUN 	echo /usr/local/lib > /etc/ld.so.conf.d/usr-local-lib.conf \
 	&& ldconfig \
-	&& echo -e 'source /opt/rh/python27/enable\nexec kodi' > /root/.xinitrc
+	&& echo -e 'source /opt/rh/python27/enable\nexec kodi-standalone' > /root/.xinitrc
 
 CMD	[ "run.sh" ]
