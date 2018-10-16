@@ -1,5 +1,9 @@
 kodi:
-  privileged: true
   build: .
+  privileged: true
   container_name: kodi
+  volumes:
+    - /etc/localtime:/etc/localtime:ro
+    - /var/lib/chinachu/recorded:/var/lib/chinachu/recorded:ro
+    - ./.kodi:./root/.kodi
   restart: always

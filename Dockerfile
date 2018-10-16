@@ -123,9 +123,23 @@ RUN 	mkdir $HOME/kodi-build \
 	&& cmake --build . -- VERBOSE=1 -j$(getconf _NPROCESSORS_ONLN) \
 	&& make install
 
+# Build pvr.chinachu 
+RUN	cd $HOME \
+	&& curl -LO https://github.com/ashimokawa/pvr.chinachu/archive/kodi-18-beta1-compat.tar.gz \
+	&& tar zxvf kodi-18-beta1-compat.tar.gz \
+	&& cd pvr.chinachu-kodi-18-beta1-compat \
+        && export PATH=/opt/xbmc-deps/x86_64-linux-gnu-native/bin:$PATH \
+	&& ./bootstrap \
+	&& source /opt/rh/devtoolset-6/enable \
+	&& ./configure \
+	&& yum install -y zip \
+	&& make \
+	&& ls pvr.chinachu.zip
+
 # Remove build-only dependencies and intermediate files
 RUN 	rm -rf	$HOME/xbmc-master \
-		$HOME/xbmc-build \
+		$HOME/kodi-build \
+		$HOME/*.tar.gz \
 		/opt/xbmc-deps \
 	&& yum install -y yum-plugin-remove-with-leaves \
 	&& yum remove -y --remove-leaves $BUILD_DEPS \
