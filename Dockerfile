@@ -82,7 +82,14 @@ RUN 	yum install -y \
 		lcms2-devel \
 		lirc-devel \
 		libsmbclient-devel \
-		libxslt-devel
+		libxslt-devel \
+		libvdpau-devel
+
+# Install NVIDIA driver and libraries
+RUN	cd $HOME \
+	&& curl -O http://developer.download.nvidia.com/compute/cuda/repos/rhel6/x86_64/cuda-repo-rhel6-10.0.130-1.x86_64.rpm \
+	&& rpm -i cuda-repo-rhel6-10.0.130-1.x86_64.rpm \
+	&& yum install -y xorg-x11-drv-nvidia-devel-410.48
 
 # Install Kodi optional dependencies with Kodi's Unified Depends Build System 
 RUN	cd $HOME/xbmc-master/tools/depends \
@@ -118,7 +125,7 @@ RUN 	mkdir $HOME/kodi-build \
 		-DENABLE_INTERNAL_FLATBUFFERS=1 \
 		-DENABLE_INTERNAL_FSTRCMP=1 \
 		-DENABLE_INTERNAL_RapidJSON=1 \
-		-DENABLE_VDPAU=OFF \
+		-DENABLE_VDPAU=ON \
 		-DENABLE_VAAPI=OFF \
 	&& cmake --build . -- VERBOSE=1 -j$(getconf _NPROCESSORS_ONLN) \
 	&& make install
@@ -140,16 +147,18 @@ RUN	cd $HOME \
 RUN 	rm -rf	$HOME/xbmc-master \
 		$HOME/kodi-build \
 		$HOME/*.tar.gz \
+		$HOME/*.rpm \
 		/opt/xbmc-deps \
 	&& yum install -y yum-plugin-remove-with-leaves \
 	&& yum remove -y --remove-leaves $BUILD_DEPS \
 	&& yum clean all
 
-# Setup run scripts
-COPY	run.sh /usr/local/bin/
-
 RUN 	echo /usr/local/lib > /etc/ld.so.conf.d/usr-local-lib.conf \
 	&& ldconfig \
-	&& echo -e 'source /opt/rh/python27/enable\nexec kodi-standalone' > /root/.xinitrc
+	&& echo -e 'source /opt/rh/python27/enable\nexec kodi-standalone' > /root/.xinitrc \
+	&& nvidia-xconfig
+
+# Setup run scripts
+COPY	run.sh /usr/local/bin/
 
 CMD	[ "run.sh" ]
