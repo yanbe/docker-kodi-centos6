@@ -134,11 +134,11 @@ RUN 	mkdir $HOME/kodi-build \
 	&& cmake --build . -- VERBOSE=1 -j$(getconf _NPROCESSORS_ONLN) \
 	&& make install
 
-# Build pvr.chinachu 
+# Build pvr.chinachu
 RUN	cd $HOME \
-	&& curl -LO https://github.com/ashimokawa/pvr.chinachu/archive/kodi-18-beta1-compat.tar.gz \
-	&& tar zxvf kodi-18-beta1-compat.tar.gz \
-	&& cd pvr.chinachu-kodi-18-beta1-compat \
+	&& curl -LO https://github.com/Harekaze/pvr.chinachu/archive/18.x-Leia.tar.gz \
+	&& tar zxvf 18.x-Leia.tar.gz \
+	&& cd pvr.chinachu-18.x-Leia \
         && export PATH=/opt/xbmc-deps/x86_64-linux-gnu-native/bin:$PATH \
 	&& ./bootstrap \
 	&& source /opt/rh/devtoolset-6/enable \
@@ -157,6 +157,7 @@ RUN 	rm -rf	$HOME/xbmc-master \
 	&& yum remove -y --remove-leaves $BUILD_DEPS \
 	&& yum clean all
 
+# Some tweaks to launch Kodi successfully
 RUN 	echo /usr/local/lib > /etc/ld.so.conf.d/usr-local-lib.conf \
 	&& ldconfig \
 	&& echo -e 'source /opt/rh/python27/enable\nexec kodi-standalone' > /root/.xinitrc \
