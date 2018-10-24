@@ -166,6 +166,6 @@ RUN 	echo /usr/local/lib > /etc/ld.so.conf.d/usr-local-lib.conf \
 	&& ln -s /usr/share/alsa /system/usr/share/alsa
 
 # Setup run scripts
-COPY	run.sh /usr/local/bin/
+COPY	services.sh /usr/local/bin/
 
-CMD	[ "run.sh" ]
+CMD	[ "services.sh" ]
