@@ -86,13 +86,14 @@ RUN 	yum install -y \
 		libvdpau-devel \
 		acpid \
 		alsa-lib-devel \
-		alsa-utils	
+		alsa-utils \
+		libudev-devel
 
 # Install NVIDIA driver and libraries
 RUN	cd $HOME \
 	&& curl -O http://developer.download.nvidia.com/compute/cuda/repos/rhel6/x86_64/cuda-repo-rhel6-10.0.130-1.x86_64.rpm \
 	&& rpm -i cuda-repo-rhel6-10.0.130-1.x86_64.rpm \
-	&& yum install -y xorg-x11-drv-nvidia-devel-410.48
+	&& yum install -y xorg-x11-drv-nvidia-devel-410.79
 
 # Patches for some build errors
 RUN     cd $HOME/xbmc-master \
@@ -100,10 +101,14 @@ RUN     cd $HOME/xbmc-master \
 	&& sed -i -E 's/(#include "ActiveAEFilter.h")/#define __STDC_FORMAT_MACROS\n#include <inttypes.h>\n\1/' xbmc/cores/AudioEngine/Engines/ActiveAE/ActiveAEFilter.cpp \
 	&& sed -i -E 's/(#include <inttypes.h>)/#define __STDC_FORMAT_MACROS\n\1/' xbmc/music/MusicDatabase.cpp \
 	&& sed -i 's/CURLOPT_ACCEPT_ENCODING/CURLOPT_ENCODING/' xbmc/filesystem/CurlFile.cpp \
+	&& sed -i 's/CURLOPT_XFERINFOFUNCTION/CURLOPT_PROGRESSFUNCTION/' xbmc/filesystem/CurlFile.cpp \
 	&& sed -i -E 's/(#include <inttypes.h>)/#define __STDC_FORMAT_MACROS\n\1/' xbmc/playlists/PlayListM3U.cpp \
 	&& sed -i -E 's/(#include "GUIMediaWindow.h")/#define __STDC_FORMAT_MACROS\n\1/' xbmc/windows/GUIMediaWindow.cpp \
 	&& sed -i -E 's/(#include "DVDDemuxVobsub.h")/#define __STDC_FORMAT_MACROS\n#include <inttypes.h>\n\1/' xbmc/cores/VideoPlayer/DVDDemuxers/DVDDemuxVobsub.cpp \
-	&& curl https://raw.githubusercontent.com/mesa3d/mesa/master/include/EGL/{eglextchromium.h} --output '/usr/include/EGL/#1'
+	&& sed -i 's!-DCMAKE_INSTALL_LIBDIR=$(PREFIX)/lib!!' tools/depends/target/libcec/Makefile \
+	&& curl https://raw.githubusercontent.com/mesa3d/mesa/master/include/EGL/{eglextchromium.h} --output '/usr/include/EGL/#1' \
+	&& curl https://raw.githubusercontent.com/mesa3d/mesa/master/include/EGL/{eglext.h} --output '/usr/include/EGL/#1' \
+	&& curl https://raw.githubusercontent.com/mesa3d/mesa/master/include/EGL/{eglplatform.h} --output '/usr/include/EGL/#1'
 
 # Install Kodi optional dependencies with Kodi's Unified Depends Build System 
 RUN	cd $HOME/xbmc-master/tools/depends \
@@ -118,6 +123,15 @@ RUN	cd $HOME/xbmc-master/tools/depends \
 	&& make -j$(getconf _NPROCESSORS_ONLN) -C target/libplist PREFIX=/usr/local \
 	&& make -j$(getconf _NPROCESSORS_ONLN) -C target/libudev PREFIX=/usr/local \
 	&& make -j$(getconf _NPROCESSORS_ONLN) -C target/libusb PREFIX=/usr/local
+
+RUN	cd $HOME \
+	&& curl -LO https://github.com/Pulse-Eight/libcec/archive/master.tar.gz \
+	&& tar zxvf master.tar.gz \
+	&& cd $HOME/libcec-master \
+	&& source /opt/rh/devtoolset-6/enable \
+	&& source /opt/rh/python27/enable \
+	&& cmake . \
+	&& make install
 
 # Build Kodi then install
 RUN 	mkdir $HOME/kodi-build \
@@ -134,22 +148,28 @@ RUN 	mkdir $HOME/kodi-build \
 	&& cmake --build . -- VERBOSE=1 -j$(getconf _NPROCESSORS_ONLN) \
 	&& make install
 
-# Build pvr.chinachu
+# Build plugin.video.epgstation
 RUN	cd $HOME \
-	&& curl -LO https://github.com/Harekaze/pvr.chinachu/archive/18.x-Leia.tar.gz \
-	&& tar zxvf 18.x-Leia.tar.gz \
-	&& cd pvr.chinachu-18.x-Leia \
-        && export PATH=/opt/xbmc-deps/x86_64-linux-gnu-native/bin:$PATH \
-	&& ./bootstrap \
+	&& curl -LO https://github.com/l3tnun/plugin.video.epgstation/archive/master.zip \
+	&& mv master.zip plugin.video.epgstation.zip
+
+# Build pvr.iptvsimple
+RUN	cd $HOME \
+	&& curl -LO https://github.com/kodi-pvr/pvr.iptvsimple/archive/master.tar.gz \
+	&& tar zxvf master.tar.gz \
+	&& mv pvr.iptvsimple-master pvr.iptvsimple \
+        && rm pvr.iptvsimple/depends/common/rapidxml/01-fix-windows.patch \
+	&& cd pvr.iptvsimple && mkdir build && cd build \
 	&& source /opt/rh/devtoolset-6/enable \
-	&& ./configure \
-	&& yum install -y zip \
-	&& make \
-	&& ls pvr.chinachu.zip
+	&& source /opt/rh/python27/enable \
+	&& yum install -y git \
+	&& cmake -DADDONS_TO_BUILD=pvr.iptvsimple -DADDON_SRC_PREFIX=../.. -DCMAKE_BUILD_TYPE=Debug -DCMAKE_INSTALL_PREFIX=/usr/local/share/kodi/addons -DPACKAGE_ZIP=1 ../../xbmc-master/cmake/addons \
+	&& make -j$(getconf _NPROCESSORS_ONLN)
 
 # Remove build-only dependencies and intermediate files
 RUN 	rm -rf	$HOME/xbmc-master \
 		$HOME/kodi-build \
+		$HOME/pvr.iptvsimple \
 		$HOME/*.tar.gz \
 		$HOME/*.rpm \
 		/opt/xbmc-deps \
